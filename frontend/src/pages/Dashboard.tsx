@@ -392,21 +392,21 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
             <div className="my-6 border-t border-white/5"></div>
         </nav>
 
-        <div className="p-4 border-t border-white/5 flex items-center justify-between gap-2">
-            <div className="flex items-center overflow-hidden">
-                <div className="h-10 w-10 min-w-[2.5rem] rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center text-white font-bold shadow-md">
-                    {user?.username?.charAt(0) || 'F'}
+            <div className="p-4 border-t border-white/5 flex flex-col lg:flex-row items-center justify-center lg:justify-between gap-4 lg:gap-2">
+                <div className="flex items-center overflow-hidden">
+                    <div className="h-10 w-10 min-w-[2.5rem] rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center text-white font-bold shadow-md">
+                        {user?.username?.charAt(0) || 'F'}
+                    </div>
+                    <div className="ml-3 hidden lg:block overflow-hidden">
+                        <p className="text-sm font-medium text-white truncate">{user.username}</p>
+                        <p className="text-xs text-slate-500">Online</p>
+                    </div>
                 </div>
-                <div className="ml-3 hidden lg:block overflow-hidden">
-                    <p className="text-sm font-medium text-white truncate">{user.username}</p>
-                    <p className="text-xs text-slate-500">Online</p>
-                </div>
+                <div className="block"><LogoutButton onClick={handleLogout} /></div>
             </div>
-            <div className="hidden lg:block"><LogoutButton onClick={handleLogout} /></div>
-        </div>
       </aside>
 
-      <main className="flex-1 ml-20 lg:ml-64 p-6 lg:p-10 overflow-x-hidden relative z-10">
+      <main className="flex-1 ml-20 lg:ml-64 p-4 md:p-6 lg:p-10 overflow-x-hidden relative z-10">
         
         {currentView === 'list' && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-500">
@@ -498,7 +498,7 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                     <div ref={animationParent} className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
                         {filteredNotes.map(note => (
                             <div key={note.id} className={`group relative p-[2px] rounded-3xl bg-gradient-to-br from-indigo-500/20 via-slate-800 to-indigo-500/20 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/20 origin-center ${deletingIds.includes(note.id) ? 'scale-50 opacity-0 pointer-events-none' : 'hover:-translate-y-2 scale-100 opacity-100'} ${newNoteId === note.id ? 'ring-2 ring-fuchsia-500 shadow-[0_0_30px_rgba(217,70,239,0.5)] z-40 scale-[1.02]' : ''}`}>
-                                <div className="bg-[#0f1014] rounded-[22px] h-full p-6 relative z-10 flex flex-col overflow-hidden">
+                                <div className="bg-[#0f1014] rounded-[22px] h-full p-4 sm:p-6 relative z-10 flex flex-col overflow-hidden">
                                     
                                     <DeleteButton 
                                         onClick={() => handleDeleteNote(note.id)} 
@@ -531,7 +531,7 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                                         </button>
 
  {}
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                                             <button onClick={()=>handleGenerate(note.id, 'quiz')} disabled={generatingId === note.id} className="group/quiz relative flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#1a1b23] border border-blue-500/30 hover:border-blue-400 shadow-sm hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden disabled:opacity-80">
                                                 <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 opacity-0 group-hover/quiz:opacity-100 transition-opacity duration-300"></div>
                                                 <Brain className="w-4 h-4 text-blue-400 group-hover/quiz:text-white relative z-10 transition-colors"/> 
@@ -571,8 +571,8 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                     <List className="w-4 h-4 mr-2"/> Vissza a listához
                 </button>
 
-                <div className="glass-card p-8 rounded-3xl border border-white/10 shadow-2xl bg-[#0f1014]/50 backdrop-blur-xl relative overflow-hidden">
-                    <h2 className="text-3xl font-bold text-white mb-8 flex items-center relative z-10">
+                <div className="glass-card p-5 sm:p-8 rounded-3xl border border-white/10 shadow-2xl bg-[#0f1014]/50 backdrop-blur-xl relative overflow-hidden">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6 sm:mb-8 flex items-center relative z-10">
                         <div className="bg-gradient-to-br from-indigo-500 to-violet-600 p-3 rounded-2xl mr-4 text-white shadow-lg shadow-indigo-500/30">
                             <Plus className="h-6 w-6"/>
                         </div>
