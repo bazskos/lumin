@@ -1,0 +1,16 @@
+# --- Backend ---
+.env
+*.db
+venv/
+__pycache__/
+uploads/
+
+# --- Frontend ---
+node_modules/
+dist/
+build/
+.DS_Store
+
+# IDEIGLENES / LOG FÁJLOK
+*.log
+npm-debug.log*
