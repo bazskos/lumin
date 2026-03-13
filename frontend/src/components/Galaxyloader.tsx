@@ -1,7 +1,7 @@
 import React from 'react';
-import './GalaxyLoader.css';
+import './Galaxyloader.css';
 
-const GalaxyLoader: React.FC = () => {
+const Galaxyloader: React.FC = () => {
   const text = "GENERÁLÁS...";
   const letters = text.split("");
 
@@ -21,4 +21,4 @@ const GalaxyLoader: React.FC = () => {
   );
 };
 
-export default GalaxyLoader;
+export default Galaxyloader;

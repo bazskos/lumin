@@ -4,7 +4,7 @@ import { BookOpen, Plus, Save, Loader2, Brain, FileText, List, Upload, Type, Ima
 import ReactMarkdown from 'react-markdown';
 import DashboardInput from '../components/DashboardInput';
 import LogoutButton from '../components/LogoutButton';
-import GalaxyLoader from '../components/GalaxyLoader';
+import Galaxyloader from '../components/Galaxyloader';
 import DeleteButton from '../components/DeleteButton';
 import { api } from '../lib/api';
 import PageLoader from '../components/PageLoader';
@@ -361,7 +361,7 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
       
         {generatingId !== null && (
           isGeneratingSlow ? (
-              <GalaxyLoader />
+              <Galaxyloader />
           ) : (
               <PageLoader text="ELLENŐRZÉS A MEMÓRIÁBAN..." />
           )
