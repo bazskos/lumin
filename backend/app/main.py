@@ -18,9 +18,16 @@ os.makedirs("uploads", exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+origins = [
+    "http://localhost:5173", # A te saját géped
+    "http://localhost:3000",
+    "https://thesis-2026-git-main-bazskos-projects.vercel.app", # A hosszú Vercel linked
+    "https://thesis-2026.vercel.app", # A rövid Vercel linked
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
