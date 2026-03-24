@@ -101,7 +101,8 @@ const Dashboard = () => {
     };
 
     if (filePath) {
-      const fileUrl = `http://localhost:8000/${filePath}?v=${note.id}`;
+      const baseUrl = import.meta.env.DEV ? 'http://localhost:8000' : 'https://thesis-2026-backend.onrender.com';
+      const fileUrl = `${baseUrl}/${filePath}?v=${note.id}`;
       const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(filePath) || note.mime_type?.includes('image');
       const isPdf = /\.pdf$/i.test(filePath) || note.mime_type?.includes('pdf');
 

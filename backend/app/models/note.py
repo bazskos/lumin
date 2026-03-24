@@ -16,3 +16,4 @@ class Note(Base):
     generated_summary = Column(Text, nullable=True)
     generated_completion = Column(Text, nullable=True)
     owner = relationship("User", back_populates="notes")
+    chat_messages = relationship("ChatMessage", back_populates="note", cascade="all, delete-orphan")

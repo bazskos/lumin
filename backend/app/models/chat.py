@@ -12,4 +12,4 @@ class ChatMessage(Base):
     is_off_topic = Column(Boolean, default=False) 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     user = relationship("User", back_populates="chat_messages")
-
+    note = relationship("Note", back_populates="chat_messages")
