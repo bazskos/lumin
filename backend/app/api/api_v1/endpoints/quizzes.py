@@ -1,3 +1,8 @@
+"""
+Kvíz generáló végpont (Dedikált AI szolgáltatás).
+Lehetővé teszi egy már meglévő jegyzethez egyedi tesztkérdések 
+dinamikus összeállítását a nagy nyelvi modell (LLM) bevonásával.
+"""
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from app.api import deps
@@ -12,6 +17,10 @@ async def generate_quiz(
     db: Session = Depends(deps.get_db),
     current_user = Depends(deps.get_current_user),
 ):
+    """
+    Egyedi kvízsor generálása a jegyzet címe és tartalma alapján.
+    A feladatok JSON formátumát a háttérben meghívott AI generátor (Pydantic logikával) validálja.
+    """
     note_id = payload.get("note_id")
     note = db.query(Note).filter(Note.id == note_id, Note.owner_id == current_user.id).first()
     

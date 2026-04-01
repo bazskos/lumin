@@ -1,3 +1,8 @@
+"""
+Felhasználókezelésért felelős végpontok.
+A regisztrációs folyamat (duplikációk kiszűrése) és a jelenlegi 
+bejelentkezett felhasználó adatainak biztonságos lekérdezése található itt.
+"""
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -13,7 +18,11 @@ def create_user(
     db: Session = Depends(deps.get_db),
     user_in: UserCreate,
 ) -> Any:
-    """Create new user."""
+    """
+    Új felhasználó regisztrációja.
+    Biztonsági ellenőrzések:
+    - Email cím és felhasználónév egyediségének validálása adatbázis szinten.
+    """
     user = crud_user.get_user_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(status_code=400, detail="The user with this email already exists in the system.")
@@ -27,5 +36,8 @@ def create_user(
 
 @router.get("/me", response_model=User)
 def read_user_me(current_user: deps.CurrentUser) -> Any:
-    """Get current user."""
+    """
+    A hitelesített (bejelentkezett) felhasználó profiladatainak lekérése.
+    A JWT token alapján automatikusan azonosítja a usert (Dependency Injection).
+    """
     return current_user

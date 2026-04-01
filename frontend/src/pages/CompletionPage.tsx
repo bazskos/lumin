@@ -1,4 +1,10 @@
-import React, { useEffect, useState } from 'react';
+/**
+ * @file CompletionPage.tsx
+ * @description "Lyukas szöveg" (Sentence Completion) AI alapú feladattípus felülete.
+ * A tanulóknak a hiányzó szavakat kell kiegészíteniük, melyeket az AI értékel ki valós időben
+ * szemantikai egyezés alapján.
+ */
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, X, Loader2, Send, Trophy, Type } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -20,8 +26,7 @@ const CompletionPage: React.FC = () => {
   const location = useLocation();
   
   const state = location.state as { exercises: Exercise[], noteId: number } | null;
-  const exercises = state?.exercises || [];
-  const noteId = state?.noteId;
+  const exercises = useMemo(() => state?.exercises ?? [], [state?.exercises]);
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
@@ -30,6 +35,29 @@ const CompletionPage: React.FC = () => {
   const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [shake, setShake] = useState(false);
+
+  useEffect(() => {
+    if (!showResult) return;
+
+    const duration = 3 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval: ReturnType<typeof setInterval> = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        return;
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [showResult]);
 
   useEffect(() => {
     if (!exercises || exercises.length === 0) {
@@ -99,19 +127,6 @@ const saveResult = async (finalScore: number) => {
   };
 
   if (showResult) {
-    const duration = 3 * 1000;
-    const animationEnd = Date.now() + duration;
-    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
-    const interval: any = setInterval(function() {
-        const timeLeft = animationEnd - Date.now();
-        if (timeLeft <= 0) return clearInterval(interval);
-        const particleCount = 50 * (timeLeft / duration);
-        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
-        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
-    }, 250);
-
     const percentage = Math.round((score / exercises.length) * 100);
 
     return (
@@ -153,13 +168,11 @@ const saveResult = async (finalScore: number) => {
   return (
     <div className="min-h-screen bg-[#0f1014] text-white flex flex-col font-sans relative overflow-y-auto overflow-x-hidden">
         
-        {}
         <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
             <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-orange-900/10 blur-[150px]"></div>
             <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-pink-900/10 blur-[150px]"></div>
         </div>
 
-        {}
         <div className="relative z-10 w-full max-w-3xl mx-auto p-6 flex items-center justify-between shrink-0">
             <button onClick={() => navigate('/dashboard')} className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition text-slate-400 hover:text-white">
                 <ArrowLeft className="w-5 h-5" />
@@ -183,19 +196,16 @@ const saveResult = async (finalScore: number) => {
             </div>
         </div>
 
-        {}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 max-w-3xl mx-auto w-full">
             
             <div className={`w-full bg-[#1a1b23]/60 backdrop-blur-md border border-white/10 p-8 md:p-12 rounded-[30px] shadow-2xl flex flex-col items-center justify-center min-h-[300px] ${shake ? 'animate-shake' : ''}`}>
                 
                 <h2 className="text-xl text-slate-400 font-medium mb-8 uppercase tracking-widest text-center">Egészítsd ki a gondolatot:</h2>
                 
-                {}
                 <div className="text-2xl md:text-3xl font-bold text-slate-200 leading-loose text-center">
                     <span>{currentEx.part_before} </span>
                     
                     <span className="relative inline-block mx-2">
-                        {}
                         <input 
                             type="text"
                             value={userAnswer}
@@ -212,7 +222,6 @@ const saveResult = async (finalScore: number) => {
                             autoFocus
                             onKeyDown={(e) => e.key === 'Enter' && userAnswer && !evaluation && handleCheck()}
                         />
-                        {}
                         {evaluation && (
                             <div className="absolute right-2 top-1/2 -translate-y-1/2">
                                 {evaluation.is_correct 
@@ -225,7 +234,6 @@ const saveResult = async (finalScore: number) => {
                     <span> {currentEx.part_after}</span>
                 </div>
 
-                {}
                 <div className="min-h-[140px] w-full flex items-center justify-center mt-8">
                 {evaluation ? (
                     <div className={`w-full p-4 rounded-xl border animate-in slide-in-from-bottom-2 duration-300 ${evaluation.is_correct ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
@@ -252,7 +260,6 @@ const saveResult = async (finalScore: number) => {
 
             </div>
             
-            {}
             <div className="w-full mt-8">
                 {!evaluation ? (
                     <button 
@@ -274,7 +281,6 @@ const saveResult = async (finalScore: number) => {
 
         </div>
 
-        {}
         <style>{`
             @keyframes shake {
                 0%, 100% { transform: translateX(0); }

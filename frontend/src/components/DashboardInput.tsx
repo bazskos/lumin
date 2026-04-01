@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 
 interface DashboardInputProps {
   label: string;
-  value: string | number;
+  value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   type?: 'text' | 'textarea' | 'select';
   placeholder?: string;
@@ -34,7 +34,7 @@ const DashboardInput: React.FC<DashboardInputProps> = ({
           <textarea
             className={`${baseStyle} min-h-[120px] resize-none leading-relaxed`}
             value={value}
-            onChange={onChange as any}
+            onChange={onChange}
             placeholder={placeholder}
             required={required}
           />
@@ -43,12 +43,11 @@ const DashboardInput: React.FC<DashboardInputProps> = ({
             <select
               className={`${baseStyle} appearance-none cursor-pointer`}
               value={value}
-              onChange={onChange as any}
+              onChange={onChange}
               required={required}
             >
               {children}
             </select>
-            {}
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
               <ChevronDown className="w-4 h-4"/>
             </div>
@@ -58,7 +57,7 @@ const DashboardInput: React.FC<DashboardInputProps> = ({
             type={type}
             className={baseStyle}
             value={value}
-            onChange={onChange as any}
+            onChange={onChange}
             placeholder={placeholder}
             required={required}
           />

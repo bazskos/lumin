@@ -1,13 +1,16 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette import status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 from app.api.api_v1.api import api_router
 from sqladmin import Admin, ModelView
 from sqladmin.authentication import AuthenticationBackend
-from starlette.requests import Request
 from starlette.middleware.sessions import SessionMiddleware
 from app.db.session import engine 
+from app.core.config import settings
 from app.models.chat import ChatMessage
 from app.models.user import User
 from app.models.note import Note
@@ -18,12 +21,38 @@ os.makedirs("uploads", exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-origins = [
-    "http://localhost:5173", # A te saját géped
+# ---------------------------------------------------------------------
+# Consistent error shape (keeps `detail` for frontend compatibility)
+# ---------------------------------------------------------------------
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "status_code": exc.status_code},
+        headers=getattr(exc, "headers", None),
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(_: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors(), "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY},
+    )
+
+# Needed for SQLAdmin AuthenticationBackend (uses request.session)
+app.add_middleware(SessionMiddleware, secret_key=settings.ADMIN_SECRET_KEY)
+
+default_origins = [
+    "http://localhost:5173",
     "http://localhost:3000",
-    "https://thesis-2026-git-main-bazskos-projects.vercel.app", # A hosszú Vercel linked
-    "https://thesis-2026.vercel.app", # A rövid Vercel linked
+    "https://thesis-2026-git-main-bazskos-projects.vercel.app",
+    "https://thesis-2026.vercel.app",
 ]
+
+origins = (
+    [o.strip() for o in (settings.BACKEND_CORS_ORIGINS or "").split(",") if o.strip()]
+    or default_origins
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,8 +67,10 @@ class AdminAuth(AuthenticationBackend):
         form = await request.form()
         username = form.get("username")
         password = form.get("password")
-        correct_username = os.getenv("ADMIN_USERNAME", "admin")
-        correct_password = os.getenv("ADMIN_PASSWORD", "szuper_titkos_alap_jelszo")
+        correct_username = settings.ADMIN_USERNAME
+        correct_password = settings.ADMIN_PASSWORD
+        if not correct_username or not correct_password:
+            return False
 
         if username == correct_username and password == correct_password:
             request.session.update({"token": "admin-logged-in"})
@@ -53,7 +84,7 @@ class AdminAuth(AuthenticationBackend):
     async def authenticate(self, request: Request) -> bool:
         return "token" in request.session
 
-authentication_backend = AdminAuth(secret_key="lumin-admin-auth-secret")
+authentication_backend = AdminAuth(secret_key=settings.ADMIN_SECRET_KEY)
 admin = Admin(app, engine, authentication_backend=authentication_backend)
 
 class UserAdmin(ModelView, model=User):

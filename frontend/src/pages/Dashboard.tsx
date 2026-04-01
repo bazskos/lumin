@@ -1,3 +1,8 @@
+/**
+ * @file Dashboard.tsx
+ * @description A fő vezérlőpult (Dashboard) komponens, amely a felhasználó tananyagainak
+ * kezeléséért, megjelenítéséért és az AI funkciók indításáért felel.
+ */
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Plus, Save, Loader2, Brain, FileText, List, Upload, Type, Image as ImageIcon, Zap, GraduationCap, Clock, PlusCircle, Library, X, Layers, Search, MessageSquare, Send, AlertCircle } from 'lucide-react';
@@ -39,10 +44,14 @@ interface ChatMessage {
   is_off_topic: boolean;
 }
 
+interface User {
+  username: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [stats, setStats] = useState<Stats>({ notes_count: 0, quizzes_count: 0, average_score: 0 });
   
@@ -101,7 +110,13 @@ const Dashboard = () => {
     };
 
     if (filePath) {
-      const baseUrl = import.meta.env.DEV ? 'http://localhost:8000' : 'https://thesis-2026-backend.onrender.com';
+      const envBackendOrigin =
+        import.meta.env.VITE_BACKEND_ORIGIN?.toString() ||
+        (import.meta.env.VITE_API_URL?.toString()
+          ? import.meta.env.VITE_API_URL.toString().replace(/\/api\/v1\/?$/, '')
+          : '');
+
+      const baseUrl = (envBackendOrigin || (import.meta.env.DEV ? 'http://localhost:8000' : 'https://thesis-2026-backend.onrender.com')).replace(/\/$/, '');
       const fileUrl = `${baseUrl}/${filePath}?v=${note.id}`;
       const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(filePath) || note.mime_type?.includes('image');
       const isPdf = /\.pdf$/i.test(filePath) || note.mime_type?.includes('pdf');
@@ -276,17 +291,17 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
             try {
                 const questions = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
                 navigate(`/quiz/${noteId}`, { state: { questions, quizId: noteId } });
-            } catch (err) { toast.error("Hiba a kvíz adatok feldolgozásakor."); }
+            } catch { toast.error("Hiba a kvíz adatok feldolgozásakor."); }
         } else if (type === 'completion') {
             try {
                 const exercises = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
                 navigate('/completion', { state: { exercises, noteId: noteId } }); 
-            } catch (e) { toast.error("Hiba a lyukas szöveg adataiban."); }
+            } catch { toast.error("Hiba a lyukas szöveg adataiban."); }
         } else if (type === 'flashcards') {
             try {
                 const cards = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
                 navigate('/flashcards', { state: { cards } });
-            } catch (e) { toast.error("Hiba a kártyák betöltésekor."); }
+            } catch { toast.error("Hiba a kártyák betöltésekor."); }
         } else {
             setAiResult({ title: type, content: data.result });
         }
@@ -309,7 +324,7 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
     try {
         const res = await api.get(`/ai/chat/${note.id}/history`);
         setChatMessages(res.data);
-    } catch (e) {
+    } catch {
         toast.error("Nem sikerült betölteni a chat előzményeket.");
     } finally {
         setIsChatLoading(false);
@@ -341,7 +356,7 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
         if (res.data.is_off_topic) {
             toast.error("Ez a kérdés eltér a tananyagtól!");
         }
-    } catch (e) {
+    } catch {
         toast.error("Hiba történt az üzenet küldésekor.");
     } finally {
         setIsChatLoading(false);
@@ -520,18 +535,13 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                                     <div className="bg-[#1a1b23] p-4 rounded-2xl mb-6 flex-grow border border-white/5 group-hover:border-white/10 transition-colors">
                                         {renderNoteContent(note)}
                                     </div>
-
-{}
                                     <div className="mt-auto pt-6 border-t border-white/5 flex flex-col gap-3 relative z-20">
                                         
-                                        {}
                                         <button onClick={()=>handleOpenChat(note)} className="group/chat relative flex items-center justify-center gap-3 p-3.5 rounded-xl bg-gradient-to-r from-indigo-600/20 to-violet-600/20 border border-indigo-500/40 hover:border-indigo-400 shadow-sm hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
                                             <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-violet-600 opacity-0 group-hover/chat:opacity-100 transition-opacity duration-300"></div>
                                             <MessageSquare className="w-5 h-5 text-indigo-400 group-hover/chat:text-white relative z-10 transition-colors" />
                                             <span className="font-bold text-sm tracking-widest text-indigo-300 group-hover/chat:text-white relative z-10 transition-colors uppercase">AI Mentor Chat</span>
                                         </button>
-
- {}
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                                             <button onClick={()=>handleGenerate(note.id, 'quiz')} disabled={generatingId === note.id} className="group/quiz relative flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#1a1b23] border border-blue-500/30 hover:border-blue-400 shadow-sm hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden disabled:opacity-80">
                                                 <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-cyan-600 opacity-0 group-hover/quiz:opacity-100 transition-opacity duration-300"></div>
@@ -602,7 +612,7 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                         <DashboardInput 
                             label="Jegyzet Címe" 
                             value={title} 
-                            onChange={(e: any) => setTitle(e.target.value)} 
+                            onChange={(e) => setTitle(e.target.value)} 
                             placeholder="pl. Analízis I. jegyzet" 
                         />
                         
@@ -610,7 +620,7 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                             label="Tantárgy" 
                             type="select" 
                             value={selectedStyle} 
-                            onChange={(e: any) => setSelectedStyle(e.target.value)}
+                            onChange={(e) => setSelectedStyle(e.target.value)}
                         >
                             <option value="general">🎓 Általános</option>
                             <option value="math">📐 Matematika</option>
@@ -658,7 +668,7 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                             label={activeTab === 'text' ? "Tartalom" : "Megjegyzés az AI-nak (Opcionális)"} 
                             type="textarea" 
                             value={content} 
-                            onChange={(e: any) => setContent(e.target.value)} 
+                            onChange={(e) => setContent(e.target.value)} 
                             placeholder={activeTab === 'text' ? "Írd ide a jegyzeted..." : "Adj egy kis kontextust a képhez (pl. Odin, a skandináv főisten)..."} 
                         />
 
@@ -674,7 +684,6 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
         )}
       </main>
       
-      {}
       {aiResult && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in duration-200" onClick={()=>setAiResult(null)}>
             <div className="bg-[#1e293b] rounded-3xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-white/10" onClick={e=>e.stopPropagation()}>
@@ -699,12 +708,10 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
         </div>
       )}
 
-      {}
       {chatNote && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-end z-[100] animate-in fade-in duration-300" onClick={() => setChatNote(null)}>
             <div className="w-full max-w-md bg-gradient-to-b from-[#12131a] to-[#0a0b0e] h-full shadow-[-20px_0_50px_rgba(0,0,0,0.5)] flex flex-col border-l border-white/10 animate-in slide-in-from-right duration-500" onClick={e => e.stopPropagation()}>
                 
-                {}
                 <div className="p-6 border-b border-white/5 bg-[#16171e]/80 backdrop-blur-md flex justify-between items-center shrink-0 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
                     <div className="flex items-center">
@@ -719,7 +726,6 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                     <button onClick={() => setChatNote(null)} className="p-2.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-all duration-300"><X className="w-5 h-5"/></button>
                 </div>
 
-                {}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar scroll-smooth">
                     {chatMessages.length === 0 && !isChatLoading && (
                         <div className="h-full flex flex-col items-center justify-center text-center opacity-50 animate-in zoom-in duration-500 delay-200">
@@ -734,7 +740,6 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                     {chatMessages.map((msg, idx) => (
                         <div key={idx} className={`flex w-full animate-in slide-in-from-bottom-4 fade-in duration-300 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             
-                            {}
                             {msg.role === 'ai' && (
                                 <div className="w-8 h-8 rounded-full bg-indigo-900/50 border border-indigo-500/30 flex items-center justify-center mr-3 mt-1 shrink-0">
                                     <Brain className="w-4 h-4 text-indigo-400" />
@@ -754,7 +759,6 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                                     </div>
                                 )}
                                 
-                                {}
                                 {msg.role === 'ai' ? (
                                     <div className="prose prose-invert max-w-none prose-p:text-sm prose-p:leading-relaxed prose-strong:text-indigo-300 prose-ul:my-1 prose-li:my-0.5 text-sm">
                                         <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -764,7 +768,6 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                                 )}
                             </div>
 
-                            {}
                             {msg.role === 'user' && (
                                 <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center ml-3 mt-1 shrink-0">
                                     <span className="text-xs font-bold text-white">{user?.username?.charAt(0).toUpperCase() || 'U'}</span>
@@ -773,7 +776,6 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                         </div>
                     ))}
 
-                    {}
                     {isChatLoading && (
                         <div className="flex items-start animate-in fade-in duration-300">
                             <div className="w-8 h-8 rounded-full bg-indigo-900/50 border border-indigo-500/30 flex items-center justify-center mr-3 mt-1 shrink-0">
@@ -789,7 +791,6 @@ const handleGenerate = async (noteId: number, type: 'quiz' | 'summary' | 'flashc
                     <div ref={messagesEndRef} />
                 </div>
 
-                {}
                 <div className="p-5 bg-[#12131a] border-t border-white/5 shrink-0">
                     <form onSubmit={handleSendMessage} className="relative flex items-center group">
                         <input

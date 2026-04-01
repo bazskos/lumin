@@ -3,7 +3,7 @@ import './CyberpunkInput.css';
 
 interface CyberpunkInputProps {
   label: string;
-  value: string | number;
+  value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   type?: 'text' | 'password' | 'textarea' | 'select'; 
   placeholder?: string;
@@ -22,14 +22,12 @@ const CyberpunkInput: React.FC<CyberpunkInputProps> = ({
 }) => {
   return (
     <div className="cp-wrapper">
-      {}
       <div className="cp-bg-layer cp-glow"></div>
       <div className="cp-bg-layer cp-darkBg"></div>
       <div className="cp-bg-layer cp-darkBg"></div>
       <div className="cp-bg-layer cp-white"></div>
       <div className="cp-bg-layer cp-border"></div>
 
-      {}
       <div className="cp-input-box">
         <label className="cp-label">{label}</label>
         
@@ -37,7 +35,7 @@ const CyberpunkInput: React.FC<CyberpunkInputProps> = ({
           <textarea
             className="cp-field"
             value={value}
-            onChange={onChange as any}
+            onChange={onChange}
             placeholder={placeholder}
             required={required}
           />
@@ -45,7 +43,7 @@ const CyberpunkInput: React.FC<CyberpunkInputProps> = ({
           <select
             className="cp-field"
             value={value}
-            onChange={onChange as any}
+            onChange={onChange}
             required={required}
           >
             {children}
@@ -55,7 +53,7 @@ const CyberpunkInput: React.FC<CyberpunkInputProps> = ({
             type={type}
             className="cp-field"
             value={value}
-            onChange={onChange as any}
+            onChange={onChange}
             placeholder={placeholder}
             required={required}
           />

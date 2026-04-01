@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
+from time import monotonic
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.orm import Session
 from app.api import deps
 from app.models.note import Note
@@ -7,22 +9,54 @@ from app.services import ai_generator
 
 router = APIRouter()
 
+_AI_RATE_LIMIT_SECONDS = 1.0
+_ai_last_call: dict[tuple[int, str], float] = {}
+
+def _enforce_ai_rate_limit(user_id: int, key: str) -> None:
+    """
+    Végpont-szintű sebességkorlátozás (Rate Limiting) az AI API hívásokhoz.
+    Védi a rendszert a spameléstől és a túlzott költségektől (Token-menedzsment).
+    """
+    now = monotonic()
+    k = (user_id, key)
+    last = _ai_last_call.get(k)
+    if last is not None and now - last < _AI_RATE_LIMIT_SECONDS:
+        raise HTTPException(status_code=429, detail="Túl sok kérés. Próbáld újra pár másodperc múlva.")
+    _ai_last_call[k] = now
+
+class NoteIdPayload(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    note_id: int = Field(..., ge=1)
+
+class CompletionCheckPayload(BaseModel):
+    user_answer: str = Field(..., min_length=1)
+    correct_answer: str = Field(..., min_length=1)
+
+class ChatSendPayload(BaseModel):
+    note_id: int = Field(..., ge=1)
+    message: str = Field(..., min_length=1)
+
 @router.post("/{type}")
 async def generate_ai_content(
     type: str,
-    payload: dict = Body(...),
+    payload: NoteIdPayload,
     db: Session = Depends(deps.get_db),
     current_user = Depends(deps.get_current_user),
 ):
-    note_id = payload.get("note_id")
+    """
+    AI alapú tananyag generálása (kvíz, vázlat, kártyák) egy specifikus jegyzethez.
+    
+    A metódus adatbázis-szintű gyorsítótárazást (Caching) végez: ha az adott típusú 
+    tartalom már egyszer legenerálódott, az eltárolt eredményt adja vissza.
+    """
+    _enforce_ai_rate_limit(current_user.id, f"gen:{type}")
+    note_id = payload.note_id
     note = db.query(Note).filter(Note.id == note_id, Note.owner_id == current_user.id).first()
     
     if not note:
         raise HTTPException(status_code=404, detail="Jegyzet nem található")
 
-    # =================================================================
-    # CACHING
-    # =================================================================
+    # 1. lépés: Ellenőrzés a gyorsítótárban (Cache)
     if type == "summary" and note.generated_summary:
         return {"result": note.generated_summary}
     elif type == "flashcards" and note.generated_flashcards:
@@ -33,11 +67,11 @@ async def generate_ai_content(
         return {"result": note.generated_quiz}
 
     full_text = f"Title: {note.title}\n\n{note.content}"
+    
+    # 2. lépés: Új tartalom generálása az LLM segítségével
     result = await ai_generator.generate_from_content(type, full_text, note.style)
     
-    # =================================================================
-    # Tokenek megspórolása
-    # =================================================================
+    # 3. lépés: Az eredmény mentése a hívási költségek minimalizálása érdekében
     if type == "summary":
         note.generated_summary = result
     elif type == "flashcards":
@@ -53,34 +87,46 @@ async def generate_ai_content(
 
 @router.post("/completion/generate")
 async def generate_completion_route(
-    payload: dict = Body(...),
+    payload: NoteIdPayload,
     db: Session = Depends(deps.get_db),
     current_user = Depends(deps.get_current_user)
 ):
+    """
+    Dedikált végpont a mondatkiegészítős (Lyukas szöveg) feladatok generálására.
+    """
     return await generate_ai_content("completion", payload, db, current_user)
 
 @router.post("/completion/check")
 async def check_answer(
-    payload: dict = Body(...),
+    payload: CompletionCheckPayload,
     current_user = Depends(deps.get_current_user)
 ):
-    user_answer = payload.get("user_answer")
-    correct_answer = payload.get("correct_answer")
-    evaluation = await ai_generator.check_completion_answer(user_answer, correct_answer)
+    """
+    A felhasználó mondatkiegészítésének szemantikai értékelése az AI által.
+    """
+    _enforce_ai_rate_limit(current_user.id, "completion:check")
+    evaluation = await ai_generator.check_completion_answer(payload.user_answer, payload.correct_answer)
     return {"evaluation": evaluation}
 
-# =====================================================================
-# (RAG ÉS MEMÓRIA)
-# =====================================================================
+"""
+-------------------------------------------------------------------------
+ RAG (Retrieval-Augmented Generation) és Chat Memória Funkciók
+-------------------------------------------------------------------------
+"""
 
 @router.post("/chat/send")
 async def send_chat_message(
-    payload: dict = Body(...),
+    payload: ChatSendPayload,
     db: Session = Depends(deps.get_db),
     current_user = Depends(deps.get_current_user)
 ):
-    note_id = payload.get("note_id")
-    user_message = payload.get("message")
+    """
+    Interaktív csevegés (Mentorkodás) a feltöltött tananyag kontextusában.
+    A kérés és a válasz elmentésre kerül, biztosítva a chat előzmények megőrzését.
+    """
+    _enforce_ai_rate_limit(current_user.id, "chat:send")
+    note_id = payload.note_id
+    user_message = payload.message
 
     note = db.query(Note).filter(Note.id == note_id, Note.owner_id == current_user.id).first()
     if not note:
@@ -123,7 +169,11 @@ async def get_chat_history(
     db: Session = Depends(deps.get_db),
     current_user = Depends(deps.get_current_user)
 ):
-    """Lekéri a korábbi beszélgetést, amikor megnyitod a chatet."""
+    """
+    Lekérdezi az AI mentorral folytatott korábbi beszélgetéseket egy adott jegyzethez.
+    Szükséges az oldal újratöltése után is konzisztens felhasználói élmény 
+    biztosításához.
+    """
     note = db.query(Note).filter(Note.id == note_id, Note.owner_id == current_user.id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Jegyzet nem található")

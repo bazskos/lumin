@@ -1,3 +1,8 @@
+/**
+ * @file Login.tsx
+ * @description Bejelentkezési felület.
+ * Kezeli a felhasználói hitelesítést és a JWT hozzáférési tokenek kliens oldali eltárolását.
+ */
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import CyberpunkInput from '../components/CyberpunkInput';

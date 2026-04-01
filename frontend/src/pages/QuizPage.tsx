@@ -1,3 +1,8 @@
+/**
+ * @file QuizPage.tsx
+ * @description Feleletválasztós kvíz felület, amely az AI által generált kérdéseket jeleníti meg.
+ * Kezeli a pontozást, a vizuális visszajelzéseket és a statisztikák API szintű mentését.
+ */
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, X, Trophy, Brain } from 'lucide-react';
@@ -21,6 +26,29 @@ const QuizPage: React.FC = () => {
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [isAnswered, setIsAnswered] = useState(false);
     const [shake, setShake] = useState(false);
+
+    useEffect(() => {
+        if (!showResult) return;
+
+        const duration = 3 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+        const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+        const interval: ReturnType<typeof setInterval> = setInterval(() => {
+            const timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) {
+                clearInterval(interval);
+                return;
+            }
+
+            const particleCount = 50 * (timeLeft / duration);
+            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+        }, 250);
+
+        return () => clearInterval(interval);
+    }, [showResult]);
 
     useEffect(() => {
         if (!quizData || !quizData.questions || quizData.questions.length === 0) {
@@ -85,19 +113,6 @@ const QuizPage: React.FC = () => {
     };
 
     if (showResult) {
-        const duration = 3 * 1000;
-        const animationEnd = Date.now() + duration;
-        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-        const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
-        const interval: any = setInterval(function() {
-            const timeLeft = animationEnd - Date.now();
-            if (timeLeft <= 0) return clearInterval(interval);
-            const particleCount = 50 * (timeLeft / duration);
-            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
-            confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
-        }, 250);
-
         const percentage = Math.round((score / questions.length) * 100);
         let message = "Gyakorlás teszi a mestert!";
         if (percentage > 80) message = "Zseniális teljesítmény! 🔥";
@@ -165,7 +180,6 @@ const QuizPage: React.FC = () => {
                 </div>
             </div>
 
-            {}
             <div className={`relative z-10 flex-1 flex flex-col items-center justify-center p-4 max-w-4xl mx-auto w-full ${shake ? 'animate-shake' : ''}`}>
                 
                 <div className="w-full bg-[#1a1b23]/60 backdrop-blur-md border border-white/10 p-10 rounded-[30px] shadow-2xl mb-10 min-h-[200px] flex items-center justify-center">

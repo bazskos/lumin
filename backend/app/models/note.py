@@ -1,9 +1,11 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.db.base_class import Base
 
 class Note(Base):
+    __table_args__ = (UniqueConstraint("owner_id", "title", name="uq_note_owner_title"),)
+
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True, nullable=False)
     content = Column(Text, nullable=True)

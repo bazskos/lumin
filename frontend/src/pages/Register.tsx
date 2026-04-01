@@ -1,9 +1,15 @@
+/**
+ * @file Register.tsx
+ * @description Felhasználói regisztrációs oldal.
+ * Felelős az új fiókok létrehozásáért és a validációs hibák (pl. duplikáció) kezeléséért.
+ */
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import CyberpunkInput from '../components/CyberpunkInput';
 import { UserPlus, ArrowRight, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -24,11 +30,11 @@ const Register = () => {
 
       toast.success('Sikeres regisztráció! Most jelentkezz be.');
       navigate('/login');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
       
       let errorMessage = 'Váratlan hiba történt a regisztráció során!';
-      const detail = error.response?.data?.detail;
+      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : undefined;
       
       if (typeof detail === 'string') {
           if (detail.toLowerCase().includes('already registered') || detail.toLowerCase().includes('exists')) {

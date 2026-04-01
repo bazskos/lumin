@@ -1,3 +1,8 @@
+"""
+Hitelesítésért (Authentication) és engedélyezésért (Authorization) felelős végpontok.
+Kezeli a bejelentkezést és a JWT (JSON Web Token) generálását, amely a 
+biztonságos és állapotmentes (stateless) munkamenetet biztosítja a rendszerben.
+"""
 from datetime import timedelta
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,7 +21,12 @@ def login_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(deps.get_db)
 ) -> Token:
-    """OAuth2 compatible token login, get an access token for future requests."""
+    """
+    OAuth2 kompatibilis bejelentkezési végpont.
+    - Jelszó ellenőrzése kriptográfiai hash alapján.
+    - Kétfaktoros jellegű azonosítás engedélyezése (felhasználónév vagy email alapján is működik).
+    - Lejárati idővel rendelkező JWT Access Token kiállítása.
+    """
     user = crud_user.get_user_by_email(db, email=form_data.username)
     if not user:
          user = crud_user.get_user_by_username(db, username=form_data.username)

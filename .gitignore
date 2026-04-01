@@ -1,8 +1,11 @@
 # --- Backend ---
 .env
+*.env*
 *.db
 venv/
 __pycache__/
+*.pyc
+.pytest_cache/
 uploads/
 
 # --- Frontend ---
@@ -14,3 +17,7 @@ build/
 # IDEIGLENES / LOG FÁJLOK
 *.log
 npm-debug.log*
+
+# --- Szerkesztő (IDE) fájlok ---
+.vscode/
+.idea/

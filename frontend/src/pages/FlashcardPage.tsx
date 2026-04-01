@@ -1,3 +1,8 @@
+/**
+ * @file FlashcardPage.tsx
+ * @description Tanulókártyák (Flashcards) interaktív megjelenítése.
+ * A fogalmak gyors memorizálását segíti elő 3D forgatási (flip) animációkkal.
+ */
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, Layers, RotateCw } from 'lucide-react';

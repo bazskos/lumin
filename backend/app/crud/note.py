@@ -1,4 +1,6 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 from app.models.note import Note
 from app.schemas.note import NoteCreate
 
@@ -14,7 +16,11 @@ def create_note(db: Session, note: NoteCreate, user_id: int, mime_type: str = No
         mime_type=mime_type
     )
     db.add(db_note)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Ezzel a címmel már létezik jegyzeted.")
     db.refresh(db_note)
     return db_note
 

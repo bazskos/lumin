@@ -7,13 +7,152 @@ from groq import Groq
 
 load_dotenv()
 
+JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
+
 def get_ai_client():
+    """
+    Iniciálja és visszaadja a Groq AI klienst a környezeti változók alapján.
+    
+    Returns:
+        Groq: Egy konfigurált Groq kliens példány.
+    Raises:
+        HTTPException: Ha a GROQ_API_KEY nincs beállítva (503 Service Unavailable).
+    """
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        print("Hiba: Nincs GROQ_API_KEY beállítva a .env fájlban!")
+        raise HTTPException(
+            status_code=503,
+            detail="Az AI szolgáltatás nincs konfigurálva (hiányzó GROQ_API_KEY).",
+        )
     return Groq(api_key=api_key)
 
+def _strip_code_fences(text: str) -> str:
+    match = JSON_FENCE_RE.search(text)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+def _extract_first_json(text: str) -> str:
+    """
+    Kinyeri az első JSON objektumot vagy tömböt egy nyers szöveges válaszból.
+    Kezeli azokat az eseteket is, amikor a nyelvi modell (LLM) extra szöveget
+    fűz a JSON formátumú válasz elé vagy mögé (hallucináció vagy bőbeszédűség).
+    
+    Args:
+        text (str): A nyelvi modell nyers válasza.
+    Returns:
+        str: A megtisztított, szintaktikailag helyesnek tűnő JSON sztring.
+    Raises:
+        ValueError: Ha nem található érvényes JSON kezdő/záró karakter a válaszban.
+    """
+    s = _strip_code_fences(text)
+    start_candidates = [i for i in (s.find("["), s.find("{")) if i != -1]
+    if not start_candidates:
+        raise ValueError("Nem található JSON kezdete a válaszban.")
+    start = min(start_candidates)
+
+    stack: list[str] = []
+    in_string = False
+    escape = False
+
+    for idx in range(start, len(s)):
+        ch = s[idx]
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+            continue
+
+        if ch in "[{":
+            stack.append(ch)
+        elif ch in "]}":
+            if not stack:
+                continue
+            open_ch = stack.pop()
+            if (open_ch == "[" and ch != "]") or (open_ch == "{" and ch != "}"):
+                raise ValueError("Hibás JSON zárójelezés a válaszban.")
+            if not stack:
+                return s[start : idx + 1].strip()
+
+    raise ValueError("Nem sikerült a JSON végét megtalálni a válaszban.")
+
+def _parse_json(text: str):
+    return json.loads(_extract_first_json(text))
+
+def _validate_quiz(payload) -> list[dict]:
+    """
+    Szigorú Pydantic-szerű kézi validáció a generált kvíz adatszerkezetére.
+    Biztosítja, hogy a frontendre kerülő adatok ne okozzanak futásidejű hibát.
+    
+    Args:
+        payload (any): A parsze-olt JSON objektum.
+    Returns:
+        list[dict]: A validált kvízlista.
+    """
+    if not isinstance(payload, list):
+        raise ValueError("A kvíz válasza nem JSON tömb.")
+    for i, q in enumerate(payload):
+        if not isinstance(q, dict):
+            raise ValueError(f"A kvíz {i+1}. eleme nem objektum.")
+        if not isinstance(q.get("question"), str) or not q["question"].strip():
+            raise ValueError(f"A kvíz {i+1}. kérdése hiányzik.")
+        options = q.get("options")
+        if not isinstance(options, list) or len(options) < 2 or not all(isinstance(o, str) for o in options):
+            raise ValueError(f"A kvíz {i+1}. opciói hibásak.")
+        if not isinstance(q.get("correct_answer"), str) or not q["correct_answer"].strip():
+            raise ValueError(f"A kvíz {i+1}. helyes válasza hiányzik.")
+    return payload
+
+def _validate_completion(payload) -> list[dict]:
+    """
+    A lyukas szöveg (Sentence Completion) feladatok adatszerkezetének validációja.
+    Ellenőrzi a mondatrészek meglétét és helyességét.
+    """
+    if not isinstance(payload, list):
+        raise ValueError("A lyukas feladat válasza nem JSON tömb.")
+    for i, ex in enumerate(payload):
+        if not isinstance(ex, dict):
+            raise ValueError(f"A feladat {i+1}. eleme nem objektum.")
+        for key in ("part_before", "hidden_part", "part_after"):
+            if not isinstance(ex.get(key), str) or not ex[key].strip():
+                raise ValueError(f"A feladat {i+1}. '{key}' hibás vagy hiányzik.")
+    return payload
+
+def _validate_flashcards(payload) -> list[dict]:
+    """
+    Tanulókártyák (Flashcards) adatszerkezetének ellenőrzése (előlap/hátlap megléte).
+    """
+    if not isinstance(payload, list):
+        raise ValueError("A flashcard válasza nem JSON tömb.")
+    for i, card in enumerate(payload):
+        if not isinstance(card, dict):
+            raise ValueError(f"A kártya {i+1}. eleme nem objektum.")
+        if not isinstance(card.get("front"), str) or not card["front"].strip():
+            raise ValueError(f"A kártya {i+1}. 'front' hibás vagy hiányzik.")
+        if not isinstance(card.get("back"), str) or not card["back"].strip():
+            raise ValueError(f"A kártya {i+1}. 'back' hibás vagy hiányzik.")
+    return payload
+
 async def generate_from_content(prompt_type: str, content: str, style: str = "general"):
+    """
+    Dinamikus, prompt-alapú tartalomgenerálás az AI szolgáltatás (LLaMA) segítségével.
+    
+    Args:
+        prompt_type (str): A kért feladattípus (pl. quiz, completion, flashcards, summary).
+        content (str): A felhasználó által feltöltött jegyzet vagy fájl tartalma/címe.
+        style (str): Tantárgyspecifikus oktatói stílus (szerepkör) az LLM számára.
+        
+    Returns:
+        str: Az AI által generált, validált eredmény JSON sztringként, vagy Markdown
+             formátumban (vázlat esetén).
+    """
     client = get_ai_client()
     model_name = 'llama-3.3-70b-versatile'
 
@@ -92,34 +231,34 @@ async def generate_from_content(prompt_type: str, content: str, style: str = "ge
 
         text_response = chat_completion.choices[0].message.content.strip()
         
-        if prompt_type in ["quiz", "completion", "flashcards"]:
-            start_idx = text_response.find('[') if prompt_type != "completion_answer" else text_response.find('{')
-            end_idx = text_response.rfind(']') if prompt_type != "completion_answer" else text_response.rfind('}')
-            start_bracket = text_response.find('[')
-            start_brace = text_response.find('{')
-            starts = [i for i in [start_bracket, start_brace] if i != -1]
-            start_idx = min(starts) if starts else -1
-            
-            end_bracket = text_response.rfind(']')
-            end_brace = text_response.rfind('}')
-            
-            ends = [i for i in [end_bracket, end_brace] if i != -1]
-            end_idx = max(ends) if ends else -1
+        if prompt_type == "quiz":
+            parsed = _validate_quiz(_parse_json(text_response))
+            return json.dumps(parsed, ensure_ascii=False)
+        if prompt_type == "completion":
+            parsed = _validate_completion(_parse_json(text_response))
+            return json.dumps(parsed, ensure_ascii=False)
+        if prompt_type == "flashcards":
+            parsed = _validate_flashcards(_parse_json(text_response))
+            return json.dumps(parsed, ensure_ascii=False)
 
-            if start_idx != -1 and end_idx != -1:
-                text_response = text_response[start_idx : end_idx + 1]
-            else:
-                print(f"Hiba: Nem található JSON a válaszban. Ezt küldte az AI: {text_response}")
-                raise ValueError("Az AI nem megfelelő formátumban válaszolt.")
-                
+        # summary: allow markdown/text
         return text_response
 
     except Exception as e:
-        print(f"AI Generálás Hiba: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"AI Generálás sikertelen: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"AI Generálás sikertelen: {str(e)}")
 
 
 async def check_completion_answer(user_answer: str, correct_answer: str):
+    """
+    Szemantikai válaszértékelő funkció a "Lyukas szöveg" feladathoz.
+    Az AI elfogadja a kisebb elírásokat és szinonimákat, növelve a felhasználói élményt.
+    
+    Args:
+        user_answer (str): A tanuló által beírt válasz.
+        correct_answer (str): Az eredeti, elvárt válasz.
+    Returns:
+        str: JSON formátumú értékelés boolean eredménnyel és visszajelzéssel.
+    """
     client = get_ai_client()
     model_name = 'llama-3.3-70b-versatile'
     
@@ -146,16 +285,31 @@ async def check_completion_answer(user_answer: str, correct_answer: str):
             temperature=0.1,
         )
         
-        return chat_completion.choices[0].message.content.strip().replace("```json", "").replace("```", "")
+        raw = chat_completion.choices[0].message.content.strip()
+        try:
+            parsed = _parse_json(raw)
+            if not isinstance(parsed, dict):
+                raise ValueError("Az értékelés nem JSON objektum.")
+            if not isinstance(parsed.get("is_correct"), bool) or not isinstance(parsed.get("feedback"), str):
+                raise ValueError("Az értékelés JSON szerkezete hibás.")
+            return json.dumps(parsed, ensure_ascii=False)
+        except Exception:
+            return _strip_code_fences(raw)
         
     except Exception as e:
-        print(f"AI Értékelés Hiba: {str(e)}")
         return '{"is_correct": false, "feedback": "Hiba történt az AI értékelés során."}'
 
 async def chat_with_note(note_title: str, note_content: str, user_message: str):
     """
     RAG (Retrieval-Augmented Generation) alapú chat funkció.
-    Háromszintű intelligenciával válaszol a jegyzet címe és tartalma alapján.
+    Háromszintű intelligenciával válaszol a jegyzet címe és tartalma alapján:
+    1. Közvetlen információ kinyerése a jegyzetből.
+    2. Általános tudás bevonása, ha releváns a témához.
+    3. Off-topic kérdések kiszűrése és megtagadása.
+    
+    Returns:
+        dict: Egy objektum a válasszal ('response') és az esetleges off-topic 
+              jelzéssel ('is_off_topic').
     """
     client = get_ai_client()
     model_name = 'llama-3.3-70b-versatile'
@@ -198,12 +352,20 @@ Struktúra:
         )
 
         raw_response = chat_completion.choices[0].message.content.strip()
-        clean_json_str = raw_response.replace("```json", "").replace("```", "").strip()
-        response_data = json.loads(clean_json_str)
-        return response_data
+        try:
+            response_data = _parse_json(raw_response)
+            if not isinstance(response_data, dict):
+                raise ValueError("A chat válasz nem JSON objektum.")
+            response = response_data.get("response")
+            is_off_topic = response_data.get("is_off_topic")
+            if not isinstance(response, str) or not isinstance(is_off_topic, bool):
+                raise ValueError("A chat JSON válasz szerkezete hibás.")
+            return {"response": response, "is_off_topic": is_off_topic}
+        except Exception:
+            # fallback: treat as plain text
+            return {"response": _strip_code_fences(raw_response), "is_off_topic": False}
 
     except Exception as e:
-        print(f"AI Chat Hiba: {str(e)}")
         return {
             "response": "Sajnálom, hiba történt az üzenet feldolgozása közben. Kérlek, próbáld újra!",
             "is_off_topic": False
