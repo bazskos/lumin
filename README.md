@@ -61,5 +61,7 @@ Create a .env file based on .env.example and fill in your credentials (DATABASE_
 ## 🏗️ Architecture
 Lumin follows an N-tier Client-Server architecture. The React frontend communicates with the FastAPI backend via a RESTful API. The system uses Database-Driven Context Injection to ensure the AI Mentor remains grounded in the user's specific notes, significantly reducing hallucinations and maintaining academic focus.
 
-## 📜 License
-This project was developed as a Bachelor's Thesis at the University of Pécs (PTE TTK). All rights reserved.
+### 📜 License & Copyright
+This project was developed as a Bachelor's Thesis at the University of Pécs (PTE TTK). **All rights reserved.**
+The code and documentation provided in this repository are for viewing and educational purposes only. You may not copy, modify, distribute, or use this work for commercial or non-academic purposes without explicit written permission from the author. 
+If you are interested in collaborating, discussing the research, or using this technology, please feel free to reach out to me directly.
